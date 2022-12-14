@@ -227,7 +227,7 @@ def quantity_selection_back_handler(message):
     display_products(message.chat.id)
 
 
-@bot.message_handler(func=lambda message: message.text == "Checkout" or message.text == "Proceed To Checkout")
+@bot.message_handler(func=lambda message: message.text in ("Checkout", "Proceed To Checkout"))
 def checkout_handler(message):
     modify_step(message.chat.id, "checkout")
     chat_id = str(message.chat.id)
