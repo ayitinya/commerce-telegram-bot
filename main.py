@@ -123,7 +123,7 @@ def make_purchase_handler(message):
     display_products(message.chat.id)
 
 
-@bot.message_handler(func=lambda message: message.text in products.keys())
+@bot.message_handler(func=lambda message: message.text in products)
 def product_selection_handler(message):
     reply = f"Product: {message.text}\nPrice: {products[message.text]['price']}\n\nHow many would you like to purchase?"
 
