@@ -236,43 +236,43 @@ def checkout_handler(message):
         text = "Your cart is empty"
         display_main_menu(message.chat.id, text)
         return
-    
+
     if chat_id not in users:
         users[chat_id] = {"phone_number": None, "address": None, "name": None}
-        
+
     text = "Please enter your phone number to proceed with payment\n\nFormat: 0201234567"
     modify_step(message.chat.id, "phone_number")
-    
+
     reply_markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True, input_field_placeholder="Enter Phone Number")
     reply_markup.add(users[chat_id]["phone_number"]) if users[chat_id]["phone_number"] else None
     reply_markup.add("Main Menu")
     bot.send_message(chat_id=message.chat.id, text=text, reply_markup=reply_markup)
-    
+
 
 @bot.message_handler(func=lambda message: message.text and step[str(message.chat.id)]["current"] == "phone_number")
 def phone_number_handler(message):
     chat_id = str(message.chat.id)
     phone_number= message.text
-    
+
     if len(phone_number) != 10 or not phone_number.isdecimal():
         text = "Please enter a valid phone number\n\nFormat: 0201234567"
         bot.send_message(chat_id=message.chat.id, text=text)
         return
-    
+
     users[chat_id]["phone_number"] = phone_number
-    
+
     modify_step(message.chat.id, "address")
     text = "Please enter your address\n\nFormat: 1234 Street Name, City, Region\n\nExample: 1234 Street Name, Accra, Greater Accra"
     bot.send_message(chat_id=message.chat.id, text=text)
-    
+
 
 @bot.message_handler(func=lambda message: message.text and step[str(message.chat.id)]["current"] == "address")
 def address_handler(message):
     chat_id = str(message.chat.id)
     address = message.text
-    
+
     users[chat_id]["address"] = address
-    
+
     modify_step(message.chat.id, "name")
     text = "Please enter your name\n\nFormat: First Name Last Name\n\nExample: John Doe"
     bot.send_message(chat_id=message.chat.id, text=text)
@@ -282,32 +282,32 @@ def address_handler(message):
 def name_handler(message):
     chat_id = str(message.chat.id)
     name = message.text
-    
+
     users[chat_id]["name"] = name
-    
+
     modify_step(message.chat.id, "confirm_order")
-    
+
     text = "Your order of"
     bot.send_message(chat_id=message.chat.id, text=text)
     display_cart(message.chat.id)
     text = "will be delivered to\n\n{}\n\n{}\n\n{}\n\nPlease confirm your order".format(users[chat_id]["name"], users[chat_id]["address"], users[chat_id]["phone_number"])
     bot.send_message(chat_id=message.chat.id, text=text)
     text = "Due to current limitations, we only accept cash payments. Once you confirm your order, you will be contacted by our delivery agent to arrange payment and delivery."
-    
-    
-    
+
+
+
     reply_markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True, input_field_placeholder="Select Payment Method", row_width=1)
     reply_markup.add("Cancel Order")
     reply_markup.add("Proceed")
-    
+
     modify_step(message.chat.id, "confirm_order")
     bot.send_message(chat_id=message.chat.id, text=text, reply_markup=reply_markup)
-    
+
 
 @bot.message_handler(func=lambda message: message.text == "Proceed" and step[str(message.chat.id)]["current"] == "confirm_order")
 def confirm_order_handler(message):
     text = "Your order is being processed. You will be contacted by our delivery agent shortly."
-    
+
     bot.send_message(chat_id=message.chat.id, text=text)
     display_main_menu(message.chat.id, "What would you like to do next?")
 
