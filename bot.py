@@ -119,14 +119,6 @@ def send_welcome(message):
     bot.reply_to(message, "Howdy, how are you doing?")
 
 
-@bot.message_handler(commands=['photo'])
-def send_photo(message):
-    import requests
-    pic = requests.get(
-        'https://res.cloudinary.com/dnha19v3n/image/upload/v1671795702/personal-blog/Capture_d_%C3%A9cran_2022-12-23_114016_ge1rzi.png').content
-    bot.send_photo(message.chat.id, pic, caption='Nice photo')
-
-
 @bot.message_handler(func=lambda message: message.text == "Make A Purchase")
 def make_purchase_handler(message):
     modify_step(message.chat.id, "make_purchase")
@@ -200,7 +192,6 @@ def product_selection_handler(message):
 @bot.message_handler(func=lambda message: message.text.isdecimal() and step.get(str(message.chat.id)) and step[str(message.chat.id)]["current"] == "product_selection")
 def quantity_selection_handler(message):
     modify_step(message.chat.id, "quantity_selection")
-    # products = db.get_products()
 
     chat_id = str(message.chat.id)
     orders_in_progress[chat_id]["quantity"] = int(message.text)
@@ -401,15 +392,6 @@ def upload_product_image(message):
                    price=new_product['price'], image=res['secure_url'])
     text = f"{new_product['name']} has been added to the list of products"
     display_admin_menu(message.chat.id, text)
-
-
-# @bot.message_handler(func=lambda message: message.text and step.get(str(message.chat.id)) and step.get(str(message.chat.id))["current"] == "add_item_image")
-# def add_item_image_handler(message):
-#     new_product['image'] = message.text
-#     db.new_product(name=new_product['name'], description=new_product['description'],
-#                    price=new_product['price'], image=new_product['image'])
-#     text = f"{new_product['name']} has been added to the list of products"
-#     display_admin_menu(message.chat.id, text)
 
 
 @bot.message_handler(func=lambda message: message.text == "View All Items" and step.get(str(message.chat.id)) and step[str(message.chat.id)]["current"] == "admin")
