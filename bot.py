@@ -395,7 +395,8 @@ def upload_product_image(message):
     file_id = message.photo[-1].file_id
     file_path = bot.get_file(file_id).file_path
     full_file_path = f"https://api.telegram.org/file/bot{config.API_KEY}/{file_path}"
-    res = media_handler.upload_image(full_file_path, public_id=new_product['name'])
+    res = media_handler.upload_image(
+        full_file_path, public_id=new_product['name'])
     db.new_product(name=new_product['name'], description=new_product['description'],
                    price=new_product['price'], image=res['secure_url'])
     text = f"{new_product['name']} has been added to the list of products"
@@ -476,4 +477,5 @@ if config.ENV == "development":
     bot.remove_webhook()
     bot.polling()
 else:
-    bot.set_webhook("https://ayitinyabot.pythonanywhere.com/")
+    bot.remove_webhook()
+    bot.set_webhook("https://ayitinyabot.pythonanywhere.com/bot")
