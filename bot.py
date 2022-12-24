@@ -71,7 +71,7 @@ def display_cart(chat_id,):
 
     cart = db.get_cart(chat_id)
 
-    if not len(cart['products']):
+    if not cart['products']:
         text = "Your cart is empty"
         bot.send_message(chat_id=chat_id, text=text)
         return
@@ -130,7 +130,7 @@ def checkout_handler(message):
     modify_step(message.chat.id, "checkout")
     cart = db.get_cart(message.chat.id)
 
-    if not len(cart['products']):
+    if not cart['products']:
         text = "Your cart is empty"
         display_main_menu(message.chat.id, text)
         return
