@@ -142,7 +142,8 @@ def checkout_handler(message):
     reply_markup = telebot.types.ReplyKeyboardMarkup(
         resize_keyboard=True, one_time_keyboard=True, input_field_placeholder="Enter Phone Number")
 
-    reply_markup.add(user.phone) if user.phone else None
+    if user.phone:
+        reply_markup.add(user.phone)  
     reply_markup.add("Main Menu")
     bot.send_message(chat_id=message.chat.id, text=text,
                      reply_markup=reply_markup)
