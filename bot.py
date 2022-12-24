@@ -295,8 +295,7 @@ def name_handler(message):
     text = "Your order of"
     bot.send_message(chat_id=message.chat.id, text=text)
     display_cart(message.chat.id)
-    text = "will be delivered to\n\n{}\n\n{}\n\n{}\n\nPlease confirm your order".format(
-        user.fullname, user.address, user.phone)
+    text = f"will be delivered to\n\n{user.fullname}\n\n{user.address}\n\n{user.phone}\n\nPlease confirm your order"
     bot.send_message(chat_id=message.chat.id, text=text)
     text = "Due to current limitations, we only accept cash payments. Once you confirm your order, you will be contacted by our delivery agent to arrange payment and delivery."
 
