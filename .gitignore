@@ -1,2 +1,6 @@
 .env
 env/
+.vscode/
+.fleet/
+*.sqlite3
+*.sqlite
