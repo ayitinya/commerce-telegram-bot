@@ -121,7 +121,7 @@ class DB:
 
 if __name__ == "__main__":
     db = DB("test.sqlite")
-    # db.create()
+    db.create()
     id = 234567890
 
     if db.get_user(id) is None:

@@ -13,6 +13,5 @@ import cloudinary.api
 import cloudinary.uploader
 
 
-
 def upload_image(image, public_id):
     return cloudinary.uploader.upload(image, folder='ecommerce-bot', public_id=public_id, overwrite=True)
