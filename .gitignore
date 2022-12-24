@@ -4,3 +4,5 @@ env/
 .fleet/
 *.sqlite3
 *.sqlite
+*.pyc
+__pycache__
