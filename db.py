@@ -106,7 +106,7 @@ class DB:
                 {'product': self.session.query(Product).filter_by(id=product.product_id).first().name, 'quantity': product.quantity, 'price': product.price, 'id': product.id} for product in cart_items
             ]
         }
-        
+
     def remove_item_from_cart(self, user_id, *args):
         with self.session as session:
             cart = session.query(Cart).filter_by(user_id=user_id).first()
