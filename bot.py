@@ -1,3 +1,7 @@
+""" This is the main file for the bot 
+    Run this file to start the bot when in development
+"""
+
 import decimal
 import telebot
 import logging
@@ -143,7 +147,7 @@ def checkout_handler(message):
         resize_keyboard=True, one_time_keyboard=True, input_field_placeholder="Enter Phone Number")
 
     if user.phone:
-        reply_markup.add(user.phone)  
+        reply_markup.add(user.phone)
     reply_markup.add("Main Menu")
     bot.send_message(chat_id=message.chat.id, text=text,
                      reply_markup=reply_markup)
@@ -313,8 +317,9 @@ def name_handler(message):
 @bot.message_handler(func=lambda message: message.text == "Proceed" and step.get(str(message.chat.id)) and step[str(message.chat.id)]["current"] == "confirm_order")
 def confirm_order_handler(message):
     text = "Your order is being processed. You will be contacted by our delivery agent shortly."
-    orders_in_progress[str(message.chat.id)] = {}
     cart = db.get_cart(str(message.chat.id))
+    db.new_order(message.chat.id, cart["total_cost"],
+                 db.get_cart_items(message.chat.id))
     db.remove_item_from_cart(
         message.chat.id, *([product['id'] for product in cart['products']]))
 
@@ -331,6 +336,7 @@ def display_admin_menu(chat_id, text):
 
     menu_markup.add("Add Item", "Remove Item", "Update Item", "View All Items",
                     "Pending Orders", "Completed Orders")
+    menu_markup.row("All Orders")
 
     modify_step(chat_id, "admin", reset=True)
 
@@ -424,6 +430,64 @@ def remove_item_handler(message):
     reply_markup.row("Return to Admin Menu")
     bot.send_message(chat_id=message.chat.id, text=text,
                      reply_markup=reply_markup)
+
+
+@bot.message_handler(func=lambda message: message.text == "All Orders" and step.get(str(message.chat.id)) and step[str(message.chat.id)]["current"] == "admin")
+def all_orders_handler(message):
+    orders = db.get_orders()
+    if not orders:
+        bot.send_message(chat_id=message.chat.id,
+                         text="There are no orders")
+        display_admin_menu(message.chat.id, "What would you like to do next?")
+        return
+
+    text = "Here are the list of orders\n\n"
+
+    for order in orders:
+        text += f"Order ID: {order}\nUser ID: {orders[order]['user_id']}\nOrder State: {orders[order]['state']}\n\n"
+    bot.send_message(chat_id=message.chat.id, text=text)
+    display_admin_menu(message.chat.id, "What would you like to do next?")
+
+
+@bot.message_handler(commands=['activate_notifications'], func=lambda message: step.get(str(message.chat.id)) and step[str(message.chat.id)]["current"] == "admin")
+def activate_notifications_handler(message):
+    db.activate_notifications(message.chat.id)
+    bot.send_message(
+        message.chat.id, "You would receive order notifications on this chat")
+
+
+@bot.message_handler(func=lambda message: message.text == "Pending Orders" and step.get(str(message.chat.id)) and step[str(message.chat.id)]["current"] == "admin")
+def pending_orders_handler(message):
+    orders = db.get_orders(state="pending")
+    if not orders:
+        bot.send_message(chat_id=message.chat.id,
+                         text="There are no pending orders")
+        display_admin_menu(message.chat.id, "What would you like to do next?")
+        return
+
+    text = "Here are the list of pending orders\n\n"
+
+    for order in orders:
+        text += f"Order ID: {order}\nUser ID: {orders[order]['user_id']}\n\n"
+    bot.send_message(chat_id=message.chat.id, text=text)
+    display_admin_menu(message.chat.id, "What would you like to do next?")
+
+
+@bot.message_handler(func=lambda message: message.text == "Completed Orders" and step.get(str(message.chat.id)) and step[str(message.chat.id)]["current"] == "admin")
+def completed_orders_handler(message):
+    orders = db.get_orders(state="completed")
+    if not orders:
+        bot.send_message(chat_id=message.chat.id,
+                         text="There are no completed orders")
+        display_admin_menu(message.chat.id, "What would you like to do next?")
+        return
+
+    text = "Here are the list of completed orders\n\n"
+
+    for order in orders:
+        text += f"Order ID: {order}\nUser ID: {orders[order]['user_id']}\n\n"
+    bot.send_message(chat_id=message.chat.id, text=text)
+    display_admin_menu(message.chat.id, "What would you like to do next?")
 
 
 @bot.message_handler(func=lambda message: message.text == "Return to Admin Menu" and step.get(str(message.chat.id)) and db.get_user(message.chat.id).is_admin)

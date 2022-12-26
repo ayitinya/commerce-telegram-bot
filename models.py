@@ -21,21 +21,23 @@ class Order(Base):
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey('user.id'))
     items = relationship("OrderItem")
-    cost = Column(String)
+    total_cost = Column(String)
+    state = Column(String)  # pending, confirmed, delivered, canceled
 
     def __repr__(self):
-        return f"Order(oid='{self.id}', user='{self.user_id}', cost='{self.cost}')"
+        return f"Order(oid='{self.id}', user='{self.user_id}', cost='{self.total_cost}')"
 
 
 class OrderItem(Base):
     __tablename__ = 'order_item'
     id = Column(Integer, primary_key=True)
-    product_id = Column(Integer, ForeignKey('product.id'))
+    product = Column(String)
     quantity = Column(Integer)
+    price = Column(String)
     order_id = Column(Integer, ForeignKey('order.id'))
 
     def __repr__(self):
-        return f"OrderItem(id='{self.id}', order='{self.order_id}', product='{self.product_id}', quantity='{self.quantity}')"
+        return f"OrderItem(id='{self.id}', order='{self.order_id}', product='{self.product}', quantity='{self.quantity}')"
 
 
 class Product(Base):
@@ -71,3 +73,8 @@ class CartItem(Base):
 
     def __repr__(self):
         return f"CartItem(id='{self.id}', cart='{self.cart_id}', product='{self.product_id}', quantity='{self.quantity}')"
+
+
+class OrderNotificationUser(Base):
+    __tablename__ = 'order_notification_user'
+    chat_id = Column(Integer, primary_key=True)

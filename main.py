@@ -1,3 +1,8 @@
+"""Main module for the bot.
+    Run this module uses webhooks to run the bot and cannot be run in local development.
+    Run bot.py to run the bot in local development.
+"""
+
 from flask import Flask, request, abort
 from bot import bot
 from telebot import types

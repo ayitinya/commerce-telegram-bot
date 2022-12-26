@@ -1,29 +1,57 @@
+"""Database module for the bot."""
+
 import decimal
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from models import CartItem, User, Product, Cart
+from models import CartItem, Order, OrderItem, OrderNotificationUser, User, Product, Cart
+from media_handler import delete_image
 
 
 class DB:
-    def __init__(self, db_name="db.sqlite3"):
+    """Database class for the bot"""
+
+    def __init__(self, db_name="db.sqlite3", echo=False, future=True):
+        """
+
+        Args:
+            db_name (str, optional): Name of the database file to use for sqlite. Defaults to "db.sqlite3".
+            echo (bool, optional): Log database activity to terminal. Defaults to False.
+            future (bool, optional): See https://docs.sqlalchemy.org/en/14/core/future.html. Defaults to True.
+        """
         self.engine = create_engine(
-            f'sqlite:///{db_name}', echo=True, future=True)
+            f'sqlite:///{db_name}', echo=echo, future=future)
         self.conn = self.engine.connect()
         self.session = Session(self.engine)
 
     def create(self):
+        """Creates the database tables
+        """
         from models import Base
         Base.metadata.create_all(self.engine)
 
     def new_user(self, id, fullname="", phone="", address="", is_admin=0):
+        """Creates a new user
+
+        Args:
+            id (_type_): ID of the user, usually their telegram ID
+            fullname (str, optional): Defaults to "".
+            phone (str, optional): Defaults to "".
+            address (str, optional): Defaults to "".
+            is_admin (int, optional): Defaults to 0.
+
+        Raises:
+            Exception: Exception raised by SQLAlchemy when user creation fails
+
+        Returns:
+            User: The newly created user
+        """
         with self.session:
             try:
-                user = self.session.query(User).filter_by(id=id).first()
-            except:
-                raise Exception("User already exists")
-            user = User(id=id, fullname=fullname,
-                        phone=phone, address=address, is_admin=is_admin)
+                user = User(id=id, fullname=fullname,
+                            phone=phone, address=address, is_admin=is_admin)
+            except Exception as e:
+                raise Exception(e)
             cart = Cart(user_id=id, total_cost=str(decimal.Decimal(0)))
             self.session.add(cart)
             self.session.add(user)
@@ -67,16 +95,22 @@ class DB:
         products = self.session.query(Product).all()
         return {product.name: {"price": product.price, "description": product.description, "image": product.image} for product in products}
 
+    def get_product_by_id(self, id):
+        product = self.session.query(Product).filter_by(id=id).first()
+        return {"name": product.name, "price": product.price, "description": product.description, "image": product.image}
+
     def remove_product(self, id):
         with self.session:
             product = self.session.query(Product).filter_by(id=id).first()
+            delete_image(product.name)
             self.session.delete(product)
             self.session.commit()
-            return True
 
     def get_cart_items(self, user_id):
         cart = self.session.query(Cart).filter_by(user_id=user_id).first()
-        return {"total_cost": cart.total_cost, "items": cart.items}
+        items = self.session.query(CartItem).filter_by(cart_id=cart.id).all()
+        print()
+        return [{"name": self.get_product_by_id(item.product_id)['name'], "price": item.price, "quantity": item.quantity} for item in items]
 
     def add_to_cart(self, user_id, product, quantity, price):
         with self.session:
@@ -89,7 +123,6 @@ class DB:
                 product_id=product.id, quantity=quantity, price=str(price), cart_id=cart.id)
             self.session.add(cart_item)
             self.session.commit()
-            return True
 
     def get_cart(self, user_id):
         cart = self.session.query(Cart).filter_by(user_id=user_id).first()
@@ -118,9 +151,43 @@ class DB:
             session.commit()
             return True
 
+    def get_orders(self, **kwargs):
+        orders = self.session.query(Order).filter_by(**kwargs).all()
+        return {
+            order.id: {"user_id": order.user_id, "total_cost": order.total_cost, "state": order.state, "items": [
+                {'product': item.product, 'price': item.price,
+                    'quantity': item.quantity}
+                for item in self.session.query(OrderItem).filter_by(order_id=order.id).all()]}
+            for order in orders
+        }
+
+    def new_order(self, user_id, total_cost, items):
+        def save_order():
+            with self.session as session:
+                order = Order(user_id=user_id,
+                              total_cost=total_cost, state="pending")
+                session.add(order)
+                session.commit()
+                return order.id
+
+        order_id = save_order()
+        with self.session as session:
+            for item in items:
+                order_item = OrderItem(
+                    product=item['name'], price=item['price'], quantity=item['quantity'], order_id=order_id)
+                session.add(order_item)
+            session.commit()
+
+        return order_id
+
+    def activate_notifications(self, user_id):
+        with self.session as session:
+            session.add(OrderNotificationUser(chat_id=user_id))
+            session.commit()
+
 
 if __name__ == "__main__":
-    db = DB("test.sqlite")
+    db = DB("test.sqlite", echo=False)
     db.create()
     id = 234567890
 
@@ -129,3 +196,13 @@ if __name__ == "__main__":
         print("User created")
     else:
         print("User already exists")
+    # db.new_product("product1", 50, "product1 description", "product1.jpg")
+    # try:
+    #     db.new_order(234567890, 100, [{"name": "product1", "price": 50, "quantity": 2}, {
+    #                  "name": "product2", "price": 50, "quantity": 1}])
+    # except Exception as e:
+    #     print(e)
+
+    print(db.get_orders(state="pending"))
+
+    # print(db.session.query(OrderItem).all())
