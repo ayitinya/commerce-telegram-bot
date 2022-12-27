@@ -239,15 +239,5 @@ if __name__ == "__main__":
     db.activate_notifications(id)
     print(db.get_notification_users())
 
-    # print(db.get_order_items(1))
-    # db.new_product("product1", 50, "product1 description", "product1.jpg")
-    # try:
-    #     db.new_order(234567890, 100, [{"name": "product1", "price": 50, "quantity": 2}, {
-    #                  "name": "product2", "price": 50, "quantity": 1}])
-    # except Exception as e:
-    #     print(e)
 
-    # print(db.get_orders(state="pending"))
 
-    # print(db.get_order(1))
-    # print(db.session.query(OrderItem).all())
