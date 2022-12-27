@@ -1,6 +1,7 @@
 """ This is the main file for the bot 
     Run this file to start the bot when in development
 """
+import ast
 
 import decimal
 import logging
@@ -642,9 +643,9 @@ def alert_user_of_order_state_change(order_id, state):
 
 
 @bot.callback_query_handler(
-    func=lambda call: eval(call.data)["action"] in ["Complete Order", "Cancel Order", "Confirm Order", "Pending Order"])
+    func=lambda call: ast.literal_eval(call.data)["action"] in ["Complete Order", "Cancel Order", "Confirm Order", "Pending Order"])
 def order_callback_handler(call):
-    data = eval(call.data)
+    data = ast.literal_eval(call.data)
     order_id = data["order_id"]
     state = data["action"].split(" ")[0].lower()
     match data["action"]:
