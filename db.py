@@ -25,8 +25,7 @@ class DB:
         self.session = Session(self.engine)
 
     def create(self):
-        """Creates the database tables
-        """
+        """Creates the database tables"""
         from models import Base
         Base.metadata.create_all(self.engine)
 
