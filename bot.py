@@ -3,16 +3,18 @@
 """
 
 import decimal
-import telebot
 import logging
+
+import telebot
+
 import config
-from db import DB
 import media_handler
+from db import DB
 
 db = DB(echo=False)
 db.create()
 
-bot = telebot.TeleBot(config.API_KEY, threaded=False)
+bot = telebot.TeleBot(config.API_KEY, threaded=False)  # free pythonanywhere hosting doesn't support threading
 
 logger = telebot.logger
 telebot.logger.setLevel(logging.DEBUG)
@@ -345,7 +347,7 @@ def confirm_order_handler(message):
     text = "Your order is being processed. You will be contacted by our delivery agent shortly."
     cart = db.get_cart(str(message.chat.id))
     order_id = db.new_order(message.chat.id, cart["total_cost"],
-                 db.get_cart_items(message.chat.id))
+                            db.get_cart_items(message.chat.id))
     alert_admins_of_new_order(order_id)
     db.remove_item_from_cart(
         message.chat.id, *([product['id'] for product in cart['products']]))
