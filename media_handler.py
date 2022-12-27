@@ -46,4 +46,5 @@ def delete_image(public_id):
     Returns:
         dict: The response from cloudinary
     """
+    print(public_id)
     return cloudinary.uploader.destroy(public_id, invalidate=True)

@@ -22,7 +22,7 @@ class Order(Base):
     user_id = Column(Integer, ForeignKey('user.id'))
     items = relationship("OrderItem")
     total_cost = Column(String)
-    state = Column(String)  # pending, confirmed, delivered, canceled
+    state = Column(String)  # pending, confirmed, completed, cancelled
 
     def __repr__(self):
         return f"Order(oid='{self.id}', user='{self.user_id}', cost='{self.total_cost}')"

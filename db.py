@@ -81,7 +81,8 @@ class DB:
 
     def get_users(self):
         users = self.session.query(User).all()
-        return {user.id: {"fullname": user.fullname, "phone": user.phone, "address": user.address, "is_admin": user.is_admin} for user in users}
+        return {user.id: {"fullname": user.fullname, "phone": user.phone, "address": user.address,
+                          "is_admin": user.is_admin} for user in users}
 
     def new_product(self, name, price, description, image):
         with self.session:
@@ -93,11 +94,13 @@ class DB:
 
     def get_products(self):
         products = self.session.query(Product).all()
-        return {product.name: {"price": product.price, "description": product.description, "image": product.image} for product in products}
+        return {product.name: {"price": product.price, "description": product.description, "image": product.image} for
+                product in products}
 
     def get_product_by_id(self, id):
         product = self.session.query(Product).filter_by(id=id).first()
-        return {"name": product.name, "price": product.price, "description": product.description, "image": product.image}
+        return {"name": product.name, "price": product.price, "description": product.description,
+                "image": product.image}
 
     def remove_product(self, id):
         with self.session:
@@ -110,7 +113,9 @@ class DB:
         cart = self.session.query(Cart).filter_by(user_id=user_id).first()
         items = self.session.query(CartItem).filter_by(cart_id=cart.id).all()
         print()
-        return [{"name": self.get_product_by_id(item.product_id)['name'], "price": item.price, "quantity": item.quantity} for item in items]
+        return [
+            {"name": self.get_product_by_id(item.product_id)['name'], "price": item.price, "quantity": item.quantity}
+            for item in items]
 
     def add_to_cart(self, user_id, product, quantity, price):
         with self.session:
@@ -136,7 +141,8 @@ class DB:
         return {
             "total_cost": cart.total_cost,
             "products": [
-                {'product': self.session.query(Product).filter_by(id=product.product_id).first().name, 'quantity': product.quantity, 'price': product.price, 'id': product.id} for product in cart_items
+                {'product': self.session.query(Product).filter_by(id=product.product_id).first().name,
+                 'quantity': product.quantity, 'price': product.price, 'id': product.id} for product in cart_items
             ]
         }
 
@@ -156,9 +162,26 @@ class DB:
         return {
             order.id: {"user_id": order.user_id, "total_cost": order.total_cost, "state": order.state, "items": [
                 {'product': item.product, 'price': item.price,
-                    'quantity': item.quantity}
+                 'quantity': item.quantity}
                 for item in self.session.query(OrderItem).filter_by(order_id=order.id).all()]}
             for order in orders
+        }
+
+    def get_order(self, id):
+        order = self.session.query(Order).filter_by(id=id).first()
+        user = self.session.query(User).filter_by(id=order.user_id).first()
+        return {
+            "user_id": order.user_id,
+            "fullname": user.fullname,
+            "phone": user.phone,
+            "address": user.address,
+            "total_cost": order.total_cost,
+            "state": order.state,
+            "items": [
+                {'product': item.product, 'price': item.price,
+                 'quantity': item.quantity}
+                for item in self.session.query(OrderItem).filter_by(order_id=order.id).all()
+            ]
         }
 
     def new_order(self, user_id, total_cost, items):
@@ -182,12 +205,28 @@ class DB:
 
     def activate_notifications(self, user_id):
         with self.session as session:
+            if session.query(OrderNotificationUser).filter_by(chat_id=user_id).first():
+                return False
             session.add(OrderNotificationUser(chat_id=user_id))
             session.commit()
 
+    def update_order(self, order_id, state):
+        with self.session as session:
+            order = session.query(Order).filter_by(id=order_id).first()
+            order.state = state
+            session.commit()
+
+    def deactivate_notifications(self, id):
+        with self.session as session:
+            session.query(OrderNotificationUser).filter_by(chat_id=id).delete()
+            session.commit()
+
+    def get_notification_users(self):
+        return [user.chat_id for user in self.session.query(OrderNotificationUser).all()]
+
 
 if __name__ == "__main__":
-    db = DB("test.sqlite", echo=False)
+    db = DB("test.sqlite", echo=True)
     db.create()
     id = 234567890
 
@@ -196,6 +235,11 @@ if __name__ == "__main__":
         print("User created")
     else:
         print("User already exists")
+
+    db.activate_notifications(id)
+    print(db.get_notification_users())
+
+    # print(db.get_order_items(1))
     # db.new_product("product1", 50, "product1 description", "product1.jpg")
     # try:
     #     db.new_order(234567890, 100, [{"name": "product1", "price": 50, "quantity": 2}, {
@@ -203,6 +247,7 @@ if __name__ == "__main__":
     # except Exception as e:
     #     print(e)
 
-    print(db.get_orders(state="pending"))
+    # print(db.get_orders(state="pending"))
 
+    # print(db.get_order(1))
     # print(db.session.query(OrderItem).all())
