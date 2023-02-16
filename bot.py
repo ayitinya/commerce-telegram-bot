@@ -529,7 +529,7 @@ def pending_orders_handler(message):
     modify_step(message.chat.id, "order_selection")
 
     for order in orders:
-        text += f"Order ID: {order}\nUser ID: {orders[order]['user_id']}\n\n"
+        text += f"Order ID: {order}\nUser ID: {orders[order]['user_id']}\nName: {orders[order]['fullname']}\nPhone: {orders[order]['phone']}\nAddress: {orders[order]['address']}\n\n"
         reply_markup.add(str(order))
 
     reply_markup.row("Return to Admin Menu")

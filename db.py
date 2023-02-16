@@ -158,13 +158,13 @@ class DB:
 
     def get_orders(self, **kwargs):
         orders = self.session.query(Order).filter_by(**kwargs).all()
-        return {
-            order.id: {"user_id": order.user_id, "total_cost": order.total_cost, "state": order.state, "items": [
+        response = {}
+        for order in orders:
+            user = self.session.query(User).filter_by(id=order.user_id).first()
+            response[order.id] = {"user_id": order.user_id, "fullname": user.fullname, "phone": user.phone, "address": user.address, "total_cost": order.total_cost, "state": order.state, "items": [
                 {'product': item.product, 'price': item.price,
-                 'quantity': item.quantity}
+                'quantity': item.quantity}
                 for item in self.session.query(OrderItem).filter_by(order_id=order.id).all()]}
-            for order in orders
-        }
 
     def get_order(self, id):
         order = self.session.query(Order).filter_by(id=id).first()
