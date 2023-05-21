@@ -386,6 +386,72 @@ def admin_password_handler(message):
     bot.send_message(chat_id=message.chat.id, text="Access granted")
     display_admin_menu(message.chat.id, "What would you like to do?")
 
+# update item
+@bot.message_handler(func=lambda message: message.text == "Update Item" and step.get(str(message.chat.id)) and step[str(message.chat.id)]["current"] == "admin")
+def update_item_handler(message):
+    products = db.get_products()
+    modify_step(message.chat.id, "update_item")
+    if not products:
+        bot.send_message(chat_id=message.chat.id,
+                         text="There are no items to be edited")
+        display_admin_menu(message.chat.id, "What would you like to do next?")
+        return
+
+    text = "Enter number of item to be edited\n\n"
+
+    for index, product in enumerate(products):
+        text += f"{index}. Name: {product}\nDescription: {products[product]['description']}\n" \
+                f"Price: {products[product]['price']}\n\n"
+                
+    bot.send_message(chat_id=message.chat.id, text=text)
+    
+product_to_be_updated = {}
+    
+@bot.message_handler(func=lambda message: message.text and step.get(str(message.chat.id)) and step[str(message.chat.id)]["current"] == "update_item")
+def update_item_name_handler(message):
+    products = db.get_products()
+    try:
+        index = int(message.text)
+        
+        
+    except Exception as e:
+        print(e)
+        bot.send_message(chat_id=message.chat.id, text="Invalid input")
+        return
+    
+    product = list(products.keys())[index]
+    product_to_be_updated['name'] = product
+    print(products[product])
+    product_to_be_updated['id'] = products[product]['id']
+
+    text = f"Enter new name for {product}"
+    new_product['old_name'] = product
+    modify_step(message.chat.id, "update_item_name")
+    bot.send_message(chat_id=message.chat.id, text=text)
+    
+@bot.message_handler(func=lambda message: message.text and step.get(str(message.chat.id)) and step[str(message.chat.id)]["current"] == "update_item_name")
+def update_item_name_handler(message):
+    product_to_be_updated['new_name'] = message.text
+    text = f"Enter new description for {product_to_be_updated['name']}"
+    modify_step(message.chat.id, "update_item_description")
+    bot.send_message(chat_id=message.chat.id, text=text)
+    
+@bot.message_handler(func=lambda message: message.text and step.get(str(message.chat.id)) and step[str(message.chat.id)]["current"] == "update_item_description")
+def update_item_description_handler(message):
+    product_to_be_updated['description'] = message.text
+    text = f"Enter new price for {product_to_be_updated['name']}"
+    modify_step(message.chat.id, "update_item_price")
+    bot.send_message(chat_id=message.chat.id, text=text)
+    
+@bot.message_handler(func=lambda message: message.text and step.get(str(message.chat.id)) and step[str(message.chat.id)]["current"] == "update_item_price")
+def update_item_price_handler(message):
+    product_to_be_updated['price'] = message.text
+    db.update_product(product_to_be_updated["id"], name = product_to_be_updated['new_name'], description = product_to_be_updated['description'], price = product_to_be_updated['price'])
+    text = f"{product_to_be_updated['name']} has been updated to {product_to_be_updated['new_name']}"
+    bot.send_message(chat_id=message.chat.id, text=text)
+    display_admin_menu(message.chat.id, "What would you like to do next?")
+    
+
 
 @bot.message_handler(
     func=lambda message: message.text == "Add Item" and step.get(str(message.chat.id)) and step[str(message.chat.id)][

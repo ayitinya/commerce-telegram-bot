@@ -93,7 +93,7 @@ class DB:
 
     def get_products(self):
         products = self.session.query(Product).all()
-        return {product.name: {"price": product.price, "description": product.description, "image": product.image} for
+        return {product.name: {"price": product.price, "description": product.description, "image": product.image, "id": product.id} for
                 product in products}
 
     def get_product_by_id(self, id):
@@ -237,6 +237,12 @@ class DB:
     def get_notification_users(self):
         return [user.chat_id for user in self.session.query(OrderNotificationUser).all()]
 
+    def update_product(self, id, **kwargs):
+        with self.session as session:
+            product = session.query(Product).filter_by(id=id).first()
+            for key, value in kwargs.items():
+                setattr(product, key, value)
+            session.commit()
 
 if __name__ == "__main__":
     db = DB("test.sqlite", echo=True)
