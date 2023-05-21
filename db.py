@@ -129,9 +129,23 @@ class DB:
             self.session.commit()
 
     def get_cart(self, user_id):
-        cart = self.session.query(Cart).filter_by(user_id=user_id).first()
-        cart_items = self.session.query(
-            CartItem).filter_by(cart_id=cart.id).all()
+        try:
+            cart = self.session.query(Cart).filter_by(user_id=user_id).first()
+        except:
+            return {
+            "total_cost": 0,
+            "products": []
+        }
+        try:
+             
+            cart_items = self.session.query(
+                CartItem).filter_by(cart_id=cart.id).all()
+        except:
+            return {
+            "total_cost": 0,
+            "products": []
+        }
+            
         products = []
         for product in cart_items:
             products.append(self.session.query(
