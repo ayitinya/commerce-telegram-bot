@@ -3,6 +3,7 @@
 env/
 .vscode/
 .fleet/
+.idead/
 *.sqlite3
 *.sqlite
 *.pyc
