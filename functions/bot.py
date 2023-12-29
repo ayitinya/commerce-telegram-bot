@@ -1,7 +1,11 @@
 """ This is the main file for the bot 
     Run this file to start the bot when in development
 """
+
+# pylint: disable = missing-function-docstring
+
 import ast
+from ctypes import cast
 
 import decimal
 import logging
@@ -9,13 +13,18 @@ import logging
 import telebot
 
 import config
-import media_handler
-from db import DB
+from data.DatabaseInterface import DatabaseFactory
+from data.firestore import Firestore
+from media_handler import FirebaseStorage, MediaHandlerFactory  # pylint: disable = import-error
+# pylint: enable = import-error
 
-db = DB(echo=False)
-db.create()
+db = DatabaseFactory(Firestore).get_database()
+media_handler = MediaHandlerFactory(FirebaseStorage).get_handler()
 
-bot = telebot.TeleBot(config.API_KEY, threaded=False)  # free pythonanywhere hosting doesn't support threading
+if not config.API_KEY:
+    raise ValueError("API_KEY is not set")
+
+bot = telebot.TeleBot(config.API_KEY, threaded=True)
 
 logger = telebot.logger
 telebot.logger.setLevel(logging.DEBUG)
@@ -87,9 +96,9 @@ def display_cart(chat_id, ):
 
 @bot.message_handler(commands=['start'])
 def start_handler(message):
-    if db.get_user(message.chat.id) is None:
+    if db.get_user_by_id(message.chat.id) is None:
         fullname = f"{message.from_user.first_name} {message.from_user.last_name if message.from_user.last_name else ''}"
-        db.new_user(message.chat.id, fullname=fullname)
+        db.create_new_user(message.chat.id, display_name=fullname)
 
     text = f"Hello {message.from_user.first_name}, welcome to our store.\n\nWhat would you like to do?"
 
@@ -98,7 +107,7 @@ def start_handler(message):
 
 @bot.message_handler(commands=['cancel'])
 def cancel_handler(message):
-    user = db.get_user(message.chat.id)
+    user = db.get_user_by_id(message.chat.id)
     if user and user.is_admin:
         display_admin_menu(message.chat.id, "What would you like to do next?")
         return
@@ -107,9 +116,9 @@ def cancel_handler(message):
 
 @bot.message_handler(commands=['admin'])
 def admin_handler(message):
-    if db.get_user(message.chat.id) is None:
+    if db.get_user_by_id(message.chat.id) is None:
         fullname = f"{message.from_user.first_name} {message.from_user.last_name if message.from_user.last_name else ''}"
-        db.new_user(message.chat.id, fullname=fullname)
+        db.create_new_user(message.chat.id, display_name=fullname)
 
     text = "Welcome Admin, enter the password to continue"
     modify_step(message.chat.id, "admin_password", reset=True)
@@ -136,7 +145,7 @@ def checkout_handler(message):
         text = "Your cart is empty"
         display_main_menu(message.chat.id, text)
         return
-    user = db.get_user(message.chat.id)
+    user = db.get_user_by_id(message.chat.id)
 
     text = "Please enter your phone number to proceed with payment\n\nFormat: 0201234567"
     modify_step(message.chat.id, "phone_number")
@@ -173,11 +182,16 @@ def main_menu_handler(message):
     func=lambda message: message.text and step.get(str(message.chat.id)) and step[str(message.chat.id)][
         "current"] == "display_products")
 def product_selection_handler(message):
-    import requests
-
-    products = db.get_products()
-    reply = f"Product: {message.text}\nPrice: {products[message.text]['price']}\n\nHow many would you like to purchase?"
-    image = requests.get(products[message.text]["image"]).content
+    products = db.get_products_by_name(cast(message.text, type(str)))
+    if not products:
+        bot.send_message(chat_id=message.chat.id,
+                         text="Product not found, please try again")
+        return
+    product = products[0]
+    
+    reply = f"Product: {message.text}\nPrice: {product.price}\n\nHow many would you like to purchase?"
+    
+    image = media_handler.download(product.image)
 
     quantity_markup = telebot.types.ReplyKeyboardMarkup(
         resize_keyboard=True, one_time_keyboard=True, input_field_placeholder="Enter Quantity", row_width=3)
@@ -224,7 +238,8 @@ def add_to_cart_handler(message):
 
     if message.text == "Yes":
         if chat_id not in orders_in_progress:
-            bot.send_message(chat_id=message.chat.id, text="An error occurred, please try again")
+            bot.send_message(chat_id=message.chat.id,
+                             text="An error occurred, please try again")
             display_main_menu(
                 message.chat.id, "What would you like to do next?")
             return
@@ -326,7 +341,7 @@ def name_handler(message):
 
 
 def alert_admins_of_new_order(order_id):
-    order = db.get_order(order_id)
+    order = db.get_order_by_id(order_id)
     text = f"New order from {order['fullname']}\n\nAddress: {order['address']}\n\nPhone:{order['phone']}\n\nOrder ID: {order_id}\n\nOrder Details:\n\n"
     text += "\n".join([f"{item['product']} - {item['quantity']} - GHC {item['price']}" for item in order['items']])
     text += f"\n\nTotal: GHC {order['total_cost']}"
@@ -347,8 +362,8 @@ def alert_admins_of_new_order(order_id):
 def confirm_order_handler(message):
     text = "Your order is being processed. You will be contacted by our delivery agent shortly."
     cart = db.get_cart(str(message.chat.id))
-    order_id = db.new_order(message.chat.id, cart["total_cost"],
-                            db.get_cart_items(message.chat.id))
+    order_id = db.create_order(message.chat.id, cart["total_cost"],
+                               db.get_cart_items(message.chat.id))
     alert_admins_of_new_order(order_id)
     db.remove_item_from_cart(
         message.chat.id, *([product['id'] for product in cart['products']]))
@@ -381,12 +396,14 @@ def admin_password_handler(message):
         bot.send_message(chat_id=message.chat.id, text=text)
         return
 
-    db.set_user_as_admin(message.chat.id)
+    db.authenticate_user(message.chat.id)
 
     bot.send_message(chat_id=message.chat.id, text="Access granted")
     display_admin_menu(message.chat.id, "What would you like to do?")
 
 # update item
+
+
 @bot.message_handler(func=lambda message: message.text == "Update Item" and step.get(str(message.chat.id)) and step[str(message.chat.id)]["current"] == "admin")
 def update_item_handler(message):
     products = db.get_products()
@@ -402,23 +419,24 @@ def update_item_handler(message):
     for index, product in enumerate(products):
         text += f"{index}. Name: {product}\nDescription: {products[product]['description']}\n" \
                 f"Price: {products[product]['price']}\n\n"
-                
+
     bot.send_message(chat_id=message.chat.id, text=text)
-    
+
+
 product_to_be_updated = {}
-    
+
+
 @bot.message_handler(func=lambda message: message.text and step.get(str(message.chat.id)) and step[str(message.chat.id)]["current"] == "update_item")
 def update_item_name_handler(message):
     products = db.get_products()
     try:
         index = int(message.text)
-        
-        
+
     except Exception as e:
         print(e)
         bot.send_message(chat_id=message.chat.id, text="Invalid input")
         return
-    
+
     product = list(products.keys())[index]
     product_to_be_updated['name'] = product
     print(products[product])
@@ -428,29 +446,32 @@ def update_item_name_handler(message):
     new_product['old_name'] = product
     modify_step(message.chat.id, "update_item_name")
     bot.send_message(chat_id=message.chat.id, text=text)
-    
+
+
 @bot.message_handler(func=lambda message: message.text and step.get(str(message.chat.id)) and step[str(message.chat.id)]["current"] == "update_item_name")
 def update_item_name_handler(message):
     product_to_be_updated['new_name'] = message.text
     text = f"Enter new description for {product_to_be_updated['name']}"
     modify_step(message.chat.id, "update_item_description")
     bot.send_message(chat_id=message.chat.id, text=text)
-    
+
+
 @bot.message_handler(func=lambda message: message.text and step.get(str(message.chat.id)) and step[str(message.chat.id)]["current"] == "update_item_description")
 def update_item_description_handler(message):
     product_to_be_updated['description'] = message.text
     text = f"Enter new price for {product_to_be_updated['name']}"
     modify_step(message.chat.id, "update_item_price")
     bot.send_message(chat_id=message.chat.id, text=text)
-    
+
+
 @bot.message_handler(func=lambda message: message.text and step.get(str(message.chat.id)) and step[str(message.chat.id)]["current"] == "update_item_price")
 def update_item_price_handler(message):
     product_to_be_updated['price'] = message.text
-    db.update_product(product_to_be_updated["id"], name = product_to_be_updated['new_name'], description = product_to_be_updated['description'], price = product_to_be_updated['price'])
+    db.update_product(product_to_be_updated["id"], name=product_to_be_updated['new_name'],
+                      description=product_to_be_updated['description'], price=product_to_be_updated['price'])
     text = f"{product_to_be_updated['name']} has been updated to {product_to_be_updated['new_name']}"
     bot.send_message(chat_id=message.chat.id, text=text)
     display_admin_menu(message.chat.id, "What would you like to do next?")
-    
 
 
 @bot.message_handler(
@@ -501,14 +522,14 @@ def upload_product_image(message):
     full_file_path = f"https://api.telegram.org/file/bot{config.API_KEY}/{file_path}"
     res = media_handler.upload_image(
         full_file_path, public_id=new_product['name'])
-    db.new_product(name=new_product['name'], description=new_product['description'],
-                   price=new_product['price'], image=res['secure_url'])
+    db.create_product(name=new_product['name'], description=new_product['description'],
+                      price=new_product['price'], image=res['secure_url'])
     text = f"{new_product['name']} has been added to the list of products"
     display_admin_menu(message.chat.id, text)
 
 
 @bot.message_handler(func=lambda message: message.text == "View All Items" and step.get(str(message.chat.id)) and
-                                          step[str(message.chat.id)]["current"] == "admin")
+                     step[str(message.chat.id)]["current"] == "admin")
 def view_all_items_handler(message):
     products = db.get_products()
     if not products:
@@ -527,7 +548,7 @@ def view_all_items_handler(message):
 
 
 @bot.message_handler(func=lambda message: message.text == "Remove Item" and step.get(str(message.chat.id)) and
-                                          step[str(message.chat.id)]["current"] == "admin")
+                     step[str(message.chat.id)]["current"] == "admin")
 def remove_item_handler(message):
     text = "Please select item you want to remove"
     modify_step(message.chat.id, "remove_item_name")
@@ -580,7 +601,7 @@ def deactivate_notifications_handler(message):
 
 
 @bot.message_handler(func=lambda message: message.text == "Pending Orders" and step.get(str(message.chat.id)) and
-                                          step[str(message.chat.id)]["current"] == "admin")
+                     step[str(message.chat.id)]["current"] == "admin")
 def pending_orders_handler(message):
     orders = db.get_orders(state="pending")
     if not orders:
@@ -599,11 +620,12 @@ def pending_orders_handler(message):
         reply_markup.add(str(order))
 
     reply_markup.row("Return to Admin Menu")
-    bot.send_message(chat_id=message.chat.id, text=text, reply_markup=reply_markup)
+    bot.send_message(chat_id=message.chat.id, text=text,
+                     reply_markup=reply_markup)
 
 
 @bot.message_handler(func=lambda message: message.text == "Completed Orders" and step.get(str(message.chat.id)) and
-                                          step[str(message.chat.id)]["current"] == "admin")
+                     step[str(message.chat.id)]["current"] == "admin")
 def completed_orders_handler(message):
     orders = db.get_orders(state="completed")
     if not orders:
@@ -622,11 +644,12 @@ def completed_orders_handler(message):
         reply_markup.add(str(order))
     reply_markup.row("Return to Admin Menu")
 
-    bot.send_message(chat_id=message.chat.id, text=text, reply_markup=reply_markup)
+    bot.send_message(chat_id=message.chat.id, text=text,
+                     reply_markup=reply_markup)
 
 
 @bot.message_handler(func=lambda message: message.text == "Cancelled Orders" and step.get(str(message.chat.id)) and
-                                          step[str(message.chat.id)]["current"] == "admin")
+                     step[str(message.chat.id)]["current"] == "admin")
 def cancelled_orders_handler(message):
     orders = db.get_orders(state="cancelled")
     if not orders:
@@ -645,11 +668,12 @@ def cancelled_orders_handler(message):
         reply_markup.add(str(order))
     reply_markup.row("Return to Admin Menu")
 
-    bot.send_message(chat_id=message.chat.id, text=text, reply_markup=reply_markup)
+    bot.send_message(chat_id=message.chat.id, text=text,
+                     reply_markup=reply_markup)
 
 
 @bot.message_handler(func=lambda message: message.text == "Confirmed Orders" and step.get(str(message.chat.id)) and
-                                          step[str(message.chat.id)]["current"] == "admin")
+                     step[str(message.chat.id)]["current"] == "admin")
 def confirmed_orders_handler(message):
     orders = db.get_orders(state="confirmed")
     if not orders:
@@ -668,14 +692,15 @@ def confirmed_orders_handler(message):
         reply_markup.add(str(order))
     reply_markup.row("Return to Admin Menu")
 
-    bot.send_message(chat_id=message.chat.id, text=text, reply_markup=reply_markup)
+    bot.send_message(chat_id=message.chat.id, text=text,
+                     reply_markup=reply_markup)
 
 
 @bot.message_handler(func=lambda message: message.text.isdecimal() and step.get(str(message.chat.id)) and
-                                          step[str(message.chat.id)]["current"] == "order_selection")
+                     step[str(message.chat.id)]["current"] == "order_selection")
 def order_selection_handler(message):
     order_id = message.text
-    order = db.get_order(order_id)
+    order = db.get_order_by_id(order_id)
     if not order:
         bot.send_message(chat_id=message.chat.id,
                          text="Order does not exist, please try again")
@@ -686,21 +711,23 @@ def order_selection_handler(message):
     for item in order["items"]:
         text += f"Item: {item['product']}\nQuantity: {item['quantity']}\nPrice: {item['price']}\n\n"
     reply_markup = telebot.types.InlineKeyboardMarkup()
-    reply_buttons = ["Complete Order", "Cancel Order", "Confirm Order", "Pending Order"]
+    reply_buttons = ["Complete Order", "Cancel Order",
+                     "Confirm Order", "Pending Order"]
     for btn in reply_buttons:
         reply_markup.add(
             telebot.types.InlineKeyboardButton(btn, callback_data=str({"order_id": order_id, "action": btn})))
 
-    bot.send_message(chat_id=message.chat.id, text=text, reply_markup=reply_markup)
+    bot.send_message(chat_id=message.chat.id, text=text,
+                     reply_markup=reply_markup)
 
 
 def alert_user_of_order_state_change(order_id, state):
-    order = db.get_order(order_id)
+    order = db.get_order_by_id(order_id)
     if not order:
         return
 
     user_id = order["user_id"]
-    user = db.get_user(user_id)
+    user = db.get_user_by_id(user_id)
     if not user:
         return
 
@@ -734,7 +761,7 @@ def order_callback_handler(call):
 
 
 @bot.message_handler(
-    func=lambda message: message.text == "Return to Admin Menu" and step.get(str(message.chat.id)) and db.get_user(
+    func=lambda message: message.text == "Return to Admin Menu" and step.get(str(message.chat.id)) and db.get_user_by_id(
         message.chat.id).is_admin)
 def return_to_admin_menu(message):
     display_admin_menu(message.chat.id, "What would you like to do next?")
@@ -746,7 +773,8 @@ def return_to_admin_menu(message):
 def remove_item_name_handler(message):
     from models import Product
 
-    product_id = db.session.query(Product).filter_by(name=message.text).first().id
+    product_id = db.session.query(Product).filter_by(
+        name=message.text).first().id
     db.remove_product(product_id)
 
     text = f"{message.text} has been removed from the list of products"
