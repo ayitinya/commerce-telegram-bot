@@ -266,7 +266,7 @@ class DBInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_cart_items(self, user_id) -> list[dict]:
+    def get_cart_items(self, user_id: str) -> list[CartItem]:
         """
         Retrieves all items in a user's cart.
 
@@ -274,7 +274,7 @@ class DBInterface(ABC):
             user_id (str): The ID of the user.
 
         Returns:
-            list[dict]: A list of cart item objects.
+            list[CartItem]: A list of CartItem objects.
         """
         raise NotImplementedError
 
@@ -292,7 +292,7 @@ class DBInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_cart(self, user_id) -> dict:
+    def get_cart(self, user_id: str) -> dict:
         """
         Retrieves a user's cart.
 
@@ -319,7 +319,7 @@ class DBInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_orders(self, **kwargs) -> list[Order]:
+    def get_orders(self, **kwargs : str) -> list[Order]:
         """
         Retrieves all orders from the database.
 
@@ -358,7 +358,7 @@ class DBInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def create_order(self, user_id, total_cost, items) -> str:
+    def create_order(self, user_id: str, total_cost: Decimal, items: list[CartItem]) -> str:
         """
         Creates a new order in the database.
 
@@ -373,7 +373,7 @@ class DBInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def update_order(self, order_id, state):
+    def update_order(self, order_id: str, state: OrderState):
         """
         Updates the state of an order in the database.
 
@@ -384,7 +384,7 @@ class DBInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def update_product(self, id_, **kwargs):
+    def update_product(self, id_, **kwargs: str):
         """
         Updates the information of a product in the database.
 

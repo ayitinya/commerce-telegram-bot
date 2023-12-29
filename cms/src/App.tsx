@@ -10,6 +10,8 @@ import "@fontsource/ibm-plex-mono";
 
 import { firebaseConfig } from "./firebase-config.ts";
 import { productsCollection } from "./collections/products.tsx";
+import { connectFirestoreEmulator, getFirestore } from "firebase/firestore";
+import { connectStorageEmulator, getStorage } from "firebase/storage";
 
 export default function App() {
 

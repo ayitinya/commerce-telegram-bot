@@ -4,10 +4,9 @@ import dataclasses
 from decimal import Decimal
 from typing import Optional, Union, TypeVar
 
-from DatabaseInterface import CartItem, DBInterface, Order, OrderState, User, Product
-import firebase_admin
-
 from google.cloud import firestore
+
+from .DatabaseInterface import CartItem, DBInterface, Order, OrderState, User, Product
 
 
 T = TypeVar('T')
@@ -24,7 +23,7 @@ class Firestore(DBInterface):
     """
 
     def __init__(self):
-        self.app = firebase_admin.initialize_app()
+        # self.app = firebase_admin.initialize_app()
         self.db = firestore.Client()
 
     def create_new_user(self, id_: str, display_name: str = "", phone: str = "", address: str = "", is_admin: int = 0):
@@ -41,11 +40,10 @@ class Firestore(DBInterface):
             "display_name": display_name,
             "phone": phone,
             "address": address,
-            "isAdmin": is_admin
+            "is_admin": is_admin
         })
 
     def get_user_by_id(self, id_):
-
         user = self.db.collection("users").document(id_).get()
         if user.exists:
             return User(id_, **not_none(user.to_dict()))
@@ -112,9 +110,10 @@ class Firestore(DBInterface):
             dict[str, Product]: A dictionary of products
         """
         return [Product(product.get("id"), **not_none(product.to_dict())) for product in self.db.collection("products").stream()]
-    
+
     def get_products_by_name(self, name: str) -> list[Product]:
-        products = self.db.collection("products").where("name", "==", name).stream()
+        products = self.db.collection("products").where(
+            "name", "==", name).stream()
         return [Product(product.get("id"), **not_none(product.to_dict())) for product in products]
 
     def get_product_by_id(self, id_: str) -> Union[Product, None]:
@@ -187,7 +186,7 @@ class Firestore(DBInterface):
             "items": [{"product": dataclasses.asdict(item.product), "quantity": item.quantity} for item in items],
         })
         return order_ref.id
-    
+
     def get_orders(self, **kwargs) -> list[Order]:
         orders = self.db.collection("orders").stream()
         return [Order(order.get("id"), **not_none(order.to_dict())) for order in orders]

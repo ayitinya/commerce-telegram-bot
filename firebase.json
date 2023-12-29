@@ -30,6 +30,27 @@
     "ui": {
       "enabled": true
     },
-    "singleProjectMode": true
+    "singleProjectMode": true,
+    "firestore": {
+      "port": 8080,
+      "host": "0.0.0.0"
+    },
+    "hosting": {
+      "port": 5000
+    }
+  },
+  "hosting": {
+    "public": "./cms/dist",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
   }
 }
