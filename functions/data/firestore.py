@@ -171,19 +171,23 @@ class Firestore(DBInterface):
         }
 
     def remove_item_from_cart(self, user_id: str, *args: str):
+        # this won't work
         for item in args:
 
             self.db.collection("carts").document(user_id).update(
                 {"items": firestore.ArrayRemove([item])})
 
     def create_order(self, user_id: str, total_cost: Decimal, items: list[CartItem]):
-        self.db.collection("orders").add({
+        order_ref = self.db.collection("orders").document()
+        order_ref.set({
+            "id": order_ref.id,
             "user": dataclasses.asdict(not_none(self.get_user_by_id(user_id))),
             "total_cost": total_cost,
             "state": OrderState.PENDING,
             "items": [{"product": dataclasses.asdict(item.product), "quantity": item.quantity} for item in items],
         })
-
+        return order_ref.id
+    
     def get_orders(self, **kwargs) -> list[Order]:
         orders = self.db.collection("orders").stream()
         return [Order(order.get("id"), **not_none(order.to_dict())) for order in orders]

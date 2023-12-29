@@ -358,7 +358,7 @@ class DBInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def create_order(self, user_id, total_cost, items):
+    def create_order(self, user_id, total_cost, items) -> str:
         """
         Creates a new order in the database.
 
@@ -366,6 +366,9 @@ class DBInterface(ABC):
             user_id (str): The ID of the user placing the order.
             total_cost (Decimal): The total cost of the order.
             items (list[CartItem]): The items in the order.
+        
+        Returns:
+            str: The ID of the order.
         """
         raise NotImplementedError
 
