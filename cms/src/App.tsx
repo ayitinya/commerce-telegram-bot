@@ -12,6 +12,7 @@ import { firebaseConfig } from "./firebase-config.ts";
 import { productsCollection } from "./collections/products.tsx";
 import { connectFirestoreEmulator, getFirestore } from "firebase/firestore";
 import { connectStorageEmulator, getStorage } from "firebase/storage";
+import { ordersCollection } from "./collections/orders.tsx";
 
 export default function App() {
 
@@ -46,7 +47,7 @@ export default function App() {
         name={"My Online Shop"}
         plugins={[dataEnhancementPlugin]}
         authentication={myAuthenticator}
-        collections={[productsCollection]}
+        collections={[productsCollection, ordersCollection]}
         firebaseConfig={firebaseConfig}
     />;
 }

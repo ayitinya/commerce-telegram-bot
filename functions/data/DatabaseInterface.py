@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum
-from typing import Type
+from typing import Type, TypedDict
 
 
 class OrderState(Enum):
@@ -24,6 +24,7 @@ class OrderState(Enum):
     PROCESSING = "PROCESSING"
     COMPLETED = "COMPLETED"
     CANCELLED = "CANCELLED"
+    IN_PROGRESS = "IN_PROGRESS"
 
 
 @dataclass
@@ -56,12 +57,16 @@ class Product:
         price (str): The price of the product.
         description (str): The description of the product.
         image (str): The image URL of the product.
+        published (bool): Indicates whether the product is published (True) or not (False).
+        status (str): The status of the product.
     """
     id_: str
     name: str
     price: str
     description: str
     image: str
+    published: bool
+    status: str
 
 
 @dataclass
@@ -130,6 +135,35 @@ class Order:
     state: OrderState
 
 
+@dataclass
+class OrderInProgress:
+    """
+    Represents an order in progress
+
+    Attributes:
+        product (Product): The product being ordered
+        quantity (int): The quantity of the product
+    """
+    product: Product
+    quantity: int
+
+
+@dataclass
+class NavigationHistory:
+    """
+    Represents the navigation history of a user in a commerce application.
+
+    Attributes:
+        user_id (str): The ID of the user.
+        current_page (str): The current page the user is on.
+        breadcrumb (list[str]): The list of previous pages visited by the user.
+    """
+
+    user_id: str
+    current_page: str
+    breadcrumb: list[str]
+
+
 class DBInterface(ABC):
     """
     Interface for the database
@@ -150,6 +184,16 @@ class DBInterface(ABC):
             address (str, optional): The address of the user. Defaults to "".
             is_admin (int, optional): Indicates whether the user is an admin (1) or not (0).
             Defaults to 0.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_admins(self) -> list[User]:
+        """
+        Retrieves all admins from the database.
+
+        Returns:
+            list[User]: A list of user objects.
         """
         raise NotImplementedError
 
@@ -228,7 +272,7 @@ class DBInterface(ABC):
             list[Product]: A list of product objects.
         """
         raise NotImplementedError
-    
+
     @abstractmethod
     def get_products_by_name(self, name: str) -> list[Product]:
         """
@@ -291,8 +335,11 @@ class DBInterface(ABC):
         """
         raise NotImplementedError
 
+    GetCartReturn = TypedDict(
+        "get_cart_return", {"total_cost": Decimal, "products": list[CartItem]})
+
     @abstractmethod
-    def get_cart(self, user_id: str) -> dict:
+    def get_cart(self, user_id: str) -> GetCartReturn:
         """
         Retrieves a user's cart.
 
@@ -300,12 +347,12 @@ class DBInterface(ABC):
             user_id (str): The ID of the user.
 
         Returns:
-            dict: A dictionary representing the user's cart.
+            dict[str, Union[Decimal, list[CartItem]]]: A dictionary containing the total cost of the cart and a list of CartItem objects.
         """
         raise NotImplementedError
 
     @abstractmethod
-    def remove_item_from_cart(self, user_id: str, *args: str) -> bool:
+    def remove_item_from_cart(self, user_id: str, item: CartItem) -> bool:
         """
         Removes an item from a user's cart.
 
@@ -319,7 +366,7 @@ class DBInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_orders(self, **kwargs : str) -> list[Order]:
+    def get_orders(self, **kwargs: str) -> list[Order]:
         """
         Retrieves all orders from the database.
 
@@ -366,7 +413,7 @@ class DBInterface(ABC):
             user_id (str): The ID of the user placing the order.
             total_cost (Decimal): The total cost of the order.
             items (list[CartItem]): The items in the order.
-        
+
         Returns:
             str: The ID of the order.
         """
@@ -391,6 +438,76 @@ class DBInterface(ABC):
         Args:
             id_ (str): The ID of the product.
             **kwargs: Additional keyword arguments representing the updated fields of the product.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def create_order_in_progress(self, user_id: str, product: Product):
+        """
+        Creates a new order in progress in the database.
+
+        Args:
+            user_id (str): The ID of the user placing the order.
+            product (Product): The product being ordered.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def update_order_in_progress(self, user_id: str, quantity: int):
+        """
+        Updates an order in progress in the database.
+
+        Args:
+            user_id (str): The ID of the user placing the order.
+            quantity (int): The new quantity of the product being ordered.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_order_in_progress(self, user_id: str) -> (OrderInProgress | None):
+        """
+        Retrieves an order in progress from the database.
+
+        Args:
+            user_id (str): The ID of the user placing the order.
+
+        Returns:
+            OrderInProgress: The order in progress object.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def remove_order_in_progress(self, user_id: str):
+        """
+        Removes an order in progress from the database.
+
+        Args:
+            user_id (str): The ID of the user placing the order.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def update_user_navigation(self, user_id: str, path: str, reset: bool = False):
+        """
+        Updates the navigation of a user in the database.
+
+        Args:
+            user_id (str): The ID of the user.
+            path (str): The new navigation of the user.
+            reset (bool)
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_user_navigation(self, user_id: str) -> NavigationHistory:
+        """
+        Retrieves the navigation of a user from the database.
+
+        Args:
+            user_id (str): The ID of the user.
+
+        Returns:
+            NavigationHistory: The navigation history of the user.
         """
         raise NotImplementedError
 

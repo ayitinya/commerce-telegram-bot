@@ -1,12 +1,12 @@
 # pylint: disable = line-too-long, missing-module-docstring, missing-class-docstring, missing-function-docstring, too-many-arguments, redefined-builtin
-
 import dataclasses
 from decimal import Decimal
 from typing import Optional, Union, TypeVar
 
+from google.cloud.firestore_v1 import ArrayRemove, FieldFilter, ArrayUnion
 from google.cloud import firestore
 
-from .DatabaseInterface import CartItem, DBInterface, Order, OrderState, User, Product
+from .DatabaseInterface import CartItem, DBInterface, NavigationHistory, Order, OrderInProgress, OrderState, User, Product
 
 
 T = TypeVar('T')
@@ -23,7 +23,7 @@ class Firestore(DBInterface):
     """
 
     def __init__(self):
-        # self.app = firebase_admin.initialize_app()
+
         self.db = firestore.Client()
 
     def create_new_user(self, id_: str, display_name: str = "", phone: str = "", address: str = "", is_admin: int = 0):
@@ -42,6 +42,11 @@ class Firestore(DBInterface):
             "address": address,
             "is_admin": is_admin
         })
+
+    def get_admins(self) -> list[User]:
+        admins = self.db.collection("users").where(
+            filter=FieldFilter("is_admin", "==", 1)).stream()
+        return [User(id_=admin.id, **not_none(admin.to_dict())) for admin in admins]
 
     def get_user_by_id(self, id_):
         user = self.db.collection("users").document(id_).get()
@@ -66,12 +71,12 @@ class Firestore(DBInterface):
             "display_name": display_name,
             "phone": phone,
             "address": address,
-            "isAdmin": is_admin
+            "is_admin": is_admin
         })
         return not_none(self.get_user_by_id(id_))
 
     def get_users(self) -> list[User]:
-        return [User(user.get("id"), **not_none(user.to_dict())) for user in self.db.collection("users").stream()]
+        return [User(user.id, **not_none(user.to_dict())) for user in self.db.collection("users").stream()]
 
     def authenticate_user(self, id_: str) -> User:
         """Sets a user's is_admin to 1
@@ -107,19 +112,19 @@ class Firestore(DBInterface):
         """Gets all products from the database
 
         Returns:
-            dict[str, Product]: A dictionary of products
+            list[Product]: The products
         """
-        return [Product(product.get("id"), **not_none(product.to_dict())) for product in self.db.collection("products").stream()]
+        return [Product(product.id, **not_none(product.to_dict())) for product in self.db.collection("products").stream()]
 
     def get_products_by_name(self, name: str) -> list[Product]:
         products = self.db.collection("products").where(
-            "name", "==", name).stream()
-        return [Product(product.get("id"), **not_none(product.to_dict())) for product in products]
+            filter=FieldFilter("name", "==", name)).stream()
+        return [Product(product.id, **not_none(product.to_dict())) for product in products]
 
     def get_product_by_id(self, id_: str) -> Union[Product, None]:
         product = self.db.collection("products").document(id_).get()
         if product.exists:
-            return Product(id_=product.get("id"), **not_none(product.to_dict()))
+            return Product(id_=product.id, **not_none(product.to_dict()))
         return None
 
     def remove_product(self, id_: str):
@@ -169,37 +174,34 @@ class Firestore(DBInterface):
             "products": cart_items
         }
 
-    def remove_item_from_cart(self, user_id: str, *args: str):
-        # this won't work
-        for item in args:
-
-            self.db.collection("carts").document(user_id).update(
-                {"items": firestore.ArrayRemove([item])})
+    def remove_item_from_cart(self, user_id: str, item: CartItem):
+        self.db.collection("carts").document(user_id).update({"items": ArrayRemove(
+            [{"product_id": item.product.id_, "quantity": item.quantity}])})
 
     def create_order(self, user_id: str, total_cost: Decimal, items: list[CartItem]):
         order_ref = self.db.collection("orders").document()
         order_ref.set({
-            "id": order_ref.id,
+            "id_": order_ref.id,
             "user": dataclasses.asdict(not_none(self.get_user_by_id(user_id))),
             "total_cost": total_cost,
-            "state": OrderState.PENDING,
+            "state": OrderState.PENDING.value,
             "items": [{"product": dataclasses.asdict(item.product), "quantity": item.quantity} for item in items],
         })
         return order_ref.id
 
     def get_orders(self, **kwargs) -> list[Order]:
         orders = self.db.collection("orders").stream()
-        return [Order(order.get("id"), **not_none(order.to_dict())) for order in orders]
+        return [Order(order.id, **not_none(order.to_dict())) for order in orders]
 
     def get_orders_by_order_state(self, state: OrderState) -> list[Order]:
         orders = self.db.collection("orders").where(
-            "state", "==", state).stream()
-        return [Order(order.get("id"), **not_none(order.to_dict())) for order in orders]
+            filter=FieldFilter("state", "==", state)).stream()
+        return [Order(order.id, **not_none(order.to_dict())) for order in orders]
 
     def get_order_by_id(self, id_):
         order = self.db.collection("orders").document(id_).get()
         if order.exists:
-            return Order(order.get("id"), **not_none(order.to_dict()))
+            return Order(order.id, **not_none(order.to_dict()))
         return None
 
     def update_order(self, order_id, state):
@@ -208,3 +210,37 @@ class Firestore(DBInterface):
 
     def update_product(self, id_: str, **kwargs):
         self.db.collection("products").document(id_).update(kwargs)
+
+    def create_order_in_progress(self, user_id: str, product: Product):
+        self.db.collection("orders_id_progress").document(user_id).set({
+            "quantity": 0,
+            "product": dataclasses.asdict(product),
+        })
+
+    def update_order_in_progress(self, user_id: str, quantity: int):
+        self.db.collection("orders_id_progress").document(
+            user_id).update({"quantity": quantity})
+
+    def get_order_in_progress(self, user_id: str) -> (OrderInProgress | None):
+        order = self.db.collection(
+            "orders_id_progress").document(user_id).get()
+        if order.exists:
+            order = not_none(order.to_dict())
+            return OrderInProgress(product=Product(**order["product"]), quantity=order["quantity"])
+        return None
+
+    def remove_order_in_progress(self, user_id: str):
+        self.db.collection("orders_id_progress").document(user_id).delete()
+
+    def update_user_navigation(self, user_id: str, path: str, reset: bool = False):
+        self.db.collection("navigation").document(user_id).set({
+            "current_page": path,
+            "breadcrump": ArrayUnion([path]) if not reset else [path]
+        }, merge=True)
+
+    def get_user_navigation(self, user_id: str) -> NavigationHistory:
+        navigation = self.db.collection("navigation").document(user_id).get()
+        if navigation.exists:
+            navigation = not_none(navigation.to_dict())
+            return NavigationHistory(user_id=user_id, breadcrumb=navigation["breadcrump"], current_page=navigation["current_page"])
+        return NavigationHistory(user_id=user_id, breadcrumb=[], current_page="")

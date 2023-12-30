@@ -129,4 +129,3 @@ class MediaHandlerFactory:
             MediaHandler: The created handler
         """
         return self.handler_type()
-
