@@ -54,25 +54,8 @@ class Firestore(DBInterface):
             return User(id_, **not_none(user.to_dict()))
         return None
 
-    def update_user(self, id_: str, display_name: str = "", phone: str = "", address: str = "", is_admin: int = 0) -> User:
-        """Updates a user in the database
-
-        Args:
-            id_ (str): The user's ID
-            display_name (str, optional): The user's display name. Defaults to "".
-            phone (str, optional): The user's phone number. Defaults to "".
-            address (str, optional): The user's address. Defaults to "".
-            is_admin (int, optional): Whether the user is an admin. Defaults to 0.
-
-        Returns:
-            User: The updated user
-        """
-        self.db.collection("users").document(id_).update({
-            "display_name": display_name,
-            "phone": phone,
-            "address": address,
-            "is_admin": is_admin
-        })
+    def update_user(self, id_: str, **kwargs) -> User:
+        self.db.collection("users").document(id_).update(kwargs)
         return not_none(self.get_user_by_id(id_))
 
     def get_users(self) -> list[User]:
@@ -183,7 +166,7 @@ class Firestore(DBInterface):
         order_ref.set({
             "id_": order_ref.id,
             "user": dataclasses.asdict(not_none(self.get_user_by_id(user_id))),
-            "total_cost": total_cost,
+            "total_cost": float(total_cost),
             "state": OrderState.PENDING.value,
             "items": [{"product": dataclasses.asdict(item.product), "quantity": item.quantity} for item in items],
         })

@@ -211,16 +211,13 @@ class DBInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def update_user(self, id_: str, display_name: str = "", phone: str = "", address: str = "", is_admin: int = 0) -> User:
+    def update_user(self, id_: str, **kwargs) -> User:
         """
         Updates the information of a user in the database.
 
         Args:
             id_ (str): The ID of the user.
-            display_name (str, optional): The new display name of the user. Defaults to "".
-            phone (str, optional): The new phone number of the user. Defaults to "".
-            address (str, optional): The new address of the user. Defaults to "".
-            is_admin (int, optional): The new admin status of the user (1 for admin, 0 for non-admin). Defaults to 0.
+            **kwargs: Additional keyword arguments representing the updated fields of the user.
 
         Returns:
             User: The updated user object.
@@ -287,7 +284,7 @@ class DBInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_product_by_id(self, id_: str) -> dict:
+    def get_product_by_id(self, id_: str) -> (Product | None):
         """
         Retrieves a product from the database by its ID.
 
@@ -295,7 +292,7 @@ class DBInterface(ABC):
             id_ (str): The ID of the product.
 
         Returns:
-            Union[Product, None]: The product object, or None if it doesn't exist.
+            Product | None: The product object, or None if it doesn't exist.
         """
         raise NotImplementedError
 

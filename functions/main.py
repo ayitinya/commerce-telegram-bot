@@ -9,25 +9,24 @@
 
 
 from firebase_functions import https_fn
-import firebase_admin
-
 from firebase_functions.firestore_fn import (
     on_document_created,
-    on_document_deleted,
     on_document_updated,
-    on_document_written,
     Event,
-    Change,
     DocumentSnapshot,
 )
 
-import sentry_sdk
+import firebase_admin
 
+import sentry_sdk
 from flask import Flask, request, abort
-from bot import bot, db
 from telebot import types
 
+from bot import bot, db
+
 import config
+from data.DatabaseInterface import Order
+from data.firestore import not_none
 
 try:
     firebase_admin.initialize_app()
@@ -61,10 +60,10 @@ def main():
 @app.route("/test-sentry")
 def hello_world():
     """
-    This function will raise an error and sentry will capture it.
+    This function will raise an exception and sentry will capture.
     """
-    a = 1/0  # raises an error
-    return "<p>Hello, World!</p>"
+    print(f"{1/0}")  # raises an exception
+    return "<p>Use Sentry, it can save your life!</p>"
 
 
 @app.route("/bot", methods=['POST'])
@@ -101,11 +100,43 @@ def order_created(event: Event) -> None:
     """
     Cloud Function endpoint for handling order creation.
     """
-    order = event.data()
+    order: DocumentSnapshot = event.data
 
+    order_processed = Order(**not_none(order.to_dict()))
     admins = db.get_admins()
     for admin in admins:
         bot.send_message(
             admin.id_,
-            f"Order #{order} created! Please contact the user to confirm the order.",
+            f"""Order created! Please contact the user to confirm the order.
+            
+            User ID: {order_processed.user.id_}
+            Name: {order_processed.user.display_name}
+            
+            Order ID: {order_processed.id_}
+            Items: {order_processed.items}
+            
+            For more information, vistit the web portal
+            
+            """,
         )
+
+
+@on_document_updated(document="orders/{order_id}")
+def order_updated(event: Event) -> None:
+    """
+    Cloud Function endpoint for handling order updates.
+    """
+    order: DocumentSnapshot = event.data
+
+    order_processed = Order(user=order.get("user"), id_=order.id, total_cost=order.get(
+        "total_cost"), items=order.get("items"), state=order.get("state"))
+
+    bot.send_message(
+        order_processed.user.id_,
+        f"""Your order has been updated.
+        
+        Order ID: {order_processed.id_}
+        Items: {order_processed.items}
+        state: {order_processed.state}
+        """,
+    )

@@ -22,8 +22,10 @@ export type Order = {
     state: OrderState;
     total_cost: number;
     items: {
-        id_: string;
-        product: Product;
+        product: {
+            name: string;
+            price: number;
+        };
         quantity: number;
     }[];
 }
@@ -38,26 +40,27 @@ export const ordersCollection = buildCollection<Order>({
     permissions: ({ authController, user }) => ({
         read: true,
         edit: true,
-        create: true,
-        delete: true
+        create: false,
+        delete: false
     }),
     properties: {
         id_: buildProperty({
-            title: "ID",
+            name: "ID",
             dataType: "string",
             readOnly: true
         }),
         user: buildProperty<User>({
-            name : "User",
+            name: "User",
             dataType: "map",
             readOnly: true,
             properties: {
                 id_: {
                     name: "ID",
                     dataType: "string",
+
                 },
                 display_name: {
-                    name: "Display Name",
+                    name: "Name",
                     dataType: "string",
                 },
                 phone: {
@@ -72,30 +75,36 @@ export const ordersCollection = buildCollection<Order>({
             }
         }),
         items: buildProperty({
-            title: "Items",
+            name: "Items",
             dataType: "array",
-            of: buildProperty({
-                title: "Item",
+            readOnly: true,
+            of: {
+                name: "Item",
                 dataType: "map",
                 properties: {
-                    id_: buildProperty({
-                        title: "ID",
-                        dataType: "string",
-                        readOnly: true
-                    }),
-                    product: buildProperty({
-                        title: "Product",
-                        dataType: "reference",
-                        collectionPath: "products"
-                    }),
-                    quantity: buildProperty({
-                        title: "Quantity",
+                    product: {
+                        name: "Product",
+                        path: "product",
+                        dataType: "map",
+                        properties: {
+                            name: {
+                                name: "Name",
+                                dataType: "string"
+                            },
+                            price: {
+                                name: "Price",
+                                dataType: "number"
+                            },
+                        }
+                    },
+                    quantity: {
+                        name: "Quantity",
                         dataType: "number"
-                    })
+                    }
                 }
-            })
+            }
         }),
-        
+
         state: buildProperty({
             title: "State",
             dataType: "string",
@@ -103,8 +112,9 @@ export const ordersCollection = buildCollection<Order>({
         }),
         total_cost: buildProperty({
             title: "Total Cost",
-            dataType: "number"
+            dataType: "number",
+            readOnly: true
         }),
-        
+
     }
 });

@@ -28,6 +28,7 @@ telebot.logger.setLevel(logging.DEBUG)
 
 step = {}
 
+
 def modify_step(chat_id, new_step, reset=False):
     chat_id = str(chat_id)
 
@@ -43,6 +44,7 @@ def modify_step(chat_id, new_step, reset=False):
     step[chat_id]["current"] = new_step
     step[chat_id]["path"].append(new_step)
 
+
 def display_main_menu(chat_id: str, text: str):
     """
     Displays the main menu to the user.
@@ -55,11 +57,15 @@ def display_main_menu(chat_id: str, text: str):
     None
     """
 
-    menu_markup = telebot.types.ReplyKeyboardMarkup(
-        resize_keyboard=True, one_time_keyboard=True, input_field_placeholder="Select An Option", row_width=2)
-
-    menu_markup.row("Make A Purchase")
-    menu_markup.add("View Cart", "Checkout")
+    # menu_markup = telebot.types.ReplyKeyboardMarkup(
+    #     resize_keyboard=True, one_time_keyboard=True, input_field_placeholder="Select An Option", row_width=2)
+    menu_markup = telebot.types.InlineKeyboardMarkup()
+    menu_markup.add(telebot.types.InlineKeyboardButton(
+        "Make A Purchase", callback_data="make_purchase"),
+        telebot.types.InlineKeyboardButton(
+            "View Cart", callback_data="view_cart"),
+        telebot.types.InlineKeyboardButton(
+            "Checkout", callback_data="checkout"))
 
     bot.send_message(chat_id=chat_id, text=text, reply_markup=menu_markup)
 
@@ -75,16 +81,15 @@ def display_products(chat_id: str):
     None
     """
 
-    products_markup = telebot.types.ReplyKeyboardMarkup(
-        resize_keyboard=True, one_time_keyboard=True, input_field_placeholder="Select A Product", row_width=2)
+    products_markup = telebot.types.InlineKeyboardMarkup()
 
-    product_list = db.get_products()
-    products = {product.name: {"price": product.price, "description": product.description,
-                               "image": product.image, "id": product.id_} for product in product_list}
-    products_markup.add(*products)
+    for product in db.get_products():
+        products_markup.add(telebot.types.InlineKeyboardButton(
+            product.name, callback_data=f"product_selection_{product.id_}"))
 
-    products_markup.row("Checkout", "View Cart")
-    products_markup.row("Main Menu")
+    products_markup.add(telebot.types.InlineKeyboardButton(
+        "Main Menu", callback_data="main_menu"),
+        telebot.types.InlineKeyboardButton("Checkout", callback_data="checkout"))
 
     text = "Hello, what would you like to purchase?\nSelect a product from the list below"
 
@@ -210,7 +215,8 @@ def checkout_handler(message: telebot.types.Message):
     text = "Please enter your phone number to proceed with payment\n\nFormat: 0201234567"
     db.update_user_navigation(str(message.chat.id), "phone_number")
 
-    reply_markup = telebot.types.ForceReply(input_field_placeholder="Enter Phone Number")
+    reply_markup = telebot.types.ForceReply(
+        input_field_placeholder="Enter Phone Number")
 
     bot.send_message(chat_id=message.chat.id, text=text,
                      reply_markup=reply_markup)
@@ -372,11 +378,12 @@ def phone_number_handler(message: telebot.types.Message):
         bot.send_message(chat_id=message.chat.id, text=text)
         return
 
-    user = db.update_user(chat_id, phone=phone)
+    db.update_user(chat_id, phone=phone)
 
     modify_step(str(message.chat.id), "address")
     text = "Please enter your address\n\nFormat: 1234 Street Name, City, Region\n\nExample: 1234 Street Name, Accra, Greater Accra"
-    reply_markup = telebot.types.ForceReply(input_field_placeholder="Enter Address")
+    reply_markup = telebot.types.ForceReply(
+        input_field_placeholder="Enter Address")
     bot.send_message(chat_id=message.chat.id, text=text,
                      reply_markup=reply_markup)
 
@@ -391,10 +398,11 @@ def address_handler(message: telebot.types.Message):
 
     address = message.text
 
-    user = db.update_user(chat_id, address=address)
+    db.update_user(chat_id, address=address)
 
     text = "Please enter your name\n\nFormat: First Name Last Name\n\nExample: John Doe"
-    reply_markup = telebot.types.ForceReply(input_field_placeholder="Enter Name")
+    reply_markup = telebot.types.ForceReply(
+        input_field_placeholder="Enter Name")
     bot.send_message(chat_id=message.chat.id, text=text,
                      reply_markup=reply_markup)
 
@@ -410,7 +418,6 @@ def name_handler(message: telebot.types.Message):
 
     user = db.update_user(chat_id, display_name=name)
 
-
     text = "Your order of"
     bot.send_message(chat_id=message.chat.id, text=text)
     display_cart(str(message.chat.id))
@@ -419,10 +426,11 @@ def name_handler(message: telebot.types.Message):
     text = "Due to current limitations, we only accept cash payments." \
            "Once you confirm your order, you will be contacted by our delivery agent to arrange payment and delivery."
 
-    reply_markup = telebot.types.ReplyKeyboardMarkup(
-        resize_keyboard=True, one_time_keyboard=True, input_field_placeholder="Select Payment Method", row_width=1)
-    reply_markup.add("Cancel Order")
-    reply_markup.add("Proceed")
+    reply_markup = telebot.types.InlineKeyboardMarkup()
+    reply_markup.add(telebot.types.InlineKeyboardButton(
+        "Confirm Order", callback_data="confirm_order"))
+    reply_markup.add(telebot.types.InlineKeyboardButton(
+        "Cancel Order", callback_data="cancel_order"))
 
     modify_step(str(message.chat.id), "confirm_order")
     bot.send_message(chat_id=message.chat.id, text=text,
@@ -510,6 +518,66 @@ def unregister_chat_as_admin(message: telebot.types.Message):
 def default_handler(message: telebot.types.Message):
     text = "Sorry, I didn't understand that command.\n\nPlease select an option from the menu below."
     display_main_menu(str(message.chat.id), text)
+
+
+handlers = {
+    "start": start_handler,
+    "help": send_welcome,
+    "make_purchase": make_purchase_handler,
+    "view_cart": view_cart_handler,
+    "main_menu": main_menu_handler,
+    "product_selection": product_selection_handler,
+    "quantity_selection": quantity_selection_handler,
+    "add_to_cart": add_to_cart_handler,
+    "confirm_order": confirm_order_handler,
+    "cancel_order": cancel_order_handler,
+    "checkout": checkout_handler
+}
+
+
+@bot.callback_query_handler(func=lambda call: True)
+def callback_query(query: telebot.types.CallbackQuery):
+    handler = handlers.get(query.data)
+
+    if handler:
+        handler(query.message)
+        bot.edit_message_reply_markup(
+            query.message.chat.id, message_id=query.message.id, reply_markup=None)
+        bot.answer_callback_query(query.id)
+
+        return
+
+    match query.data:
+        case str(x) if x.startswith("product_selection_"):
+            product_id = x.split("_")[2]
+            product = db.get_product_by_id(product_id)
+            if product is None:
+                bot.send_message(chat_id=query.message.chat.id,
+                                 text="Product not found, please try again")
+                return
+
+            reply = f"Product: {product.name}\nPrice: {product.price}\n\nHow many would you like to purchase?"
+
+            image = media_handler.download(product.image)
+
+            quantity_markup = telebot.types.ReplyKeyboardMarkup(
+                resize_keyboard=True, one_time_keyboard=True, input_field_placeholder="Enter Quantity", row_width=3)
+            quantity_markup.add(*[str(i) for i in range(1, 11)], "Back")
+
+            modify_step(str(query.message.chat.id), "product_selection")
+
+            db.create_order_in_progress(
+                str(query.message.chat.id), product)
+
+            bot.send_photo(query.message.chat.id, image, caption=reply,
+                           reply_markup=quantity_markup)
+        case _:
+            bot.send_message(chat_id=query.message.chat.id,
+                             text="An error occurred, please try again")
+
+    bot.edit_message_reply_markup(
+        query.message.chat.id, message_id=query.message.id, reply_markup=None)
+    bot.answer_callback_query(query.id)
 
 
 if config.ENV == "development":
