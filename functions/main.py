@@ -26,7 +26,7 @@ from telebot import types
 from bot import bot, db
 
 import config
-from data.DatabaseInterface import Order
+from data.DatabaseInterface import Order, OrderItem, User
 from data.firestore import not_none
 
 try:
@@ -130,15 +130,14 @@ def order_updated(event: Event) -> None:
     change: Change = event.data
     order: DocumentSnapshot = change.after
 
-    order_processed = Order(user=order.get("user"), id_=order.id, total_cost=order.get(
-        "total_cost"), items=order.get("items"), state=order.get("state"))
+    order_processed = Order(user=User(**order.get("user")), id_=order.id, total_cost=order.get(
+        "total_cost"), items=[OrderItem(**order_item) for order_item in order.get("items")], state=order.get("state"))
 
     bot.send_message(
         order_processed.user.id_,
         f"""Your order has been updated.
         
         Order ID: {order_processed.id_}
-        Items: {order_processed.items}
         state: {order_processed.state}
         """,
     )
