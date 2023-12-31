@@ -12,6 +12,7 @@ from firebase_functions import https_fn
 from firebase_functions.firestore_fn import (
     on_document_created,
     on_document_updated,
+    Change,
     Event,
     DocumentSnapshot,
 )
@@ -126,7 +127,8 @@ def order_updated(event: Event) -> None:
     """
     Cloud Function endpoint for handling order updates.
     """
-    order: DocumentSnapshot = event.data
+    change: Change = event.data
+    order: DocumentSnapshot = change.after
 
     order_processed = Order(user=order.get("user"), id_=order.id, total_cost=order.get(
         "total_cost"), items=order.get("items"), state=order.get("state"))
