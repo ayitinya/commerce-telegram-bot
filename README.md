@@ -7,7 +7,7 @@ Store data is stored in a cloud firestore database and interactions
 ## Requirements
 
 * Python 3.11 and up
-* [Firebase](https://firebase.com) account for image uploads, cloud functions, and hosting of [FireCMS](https://firecms.io)
+* [Firebase](https://firebase.com) account for image uploads, cloud functions, and hosting of [FireCMS](https://firecms.co)
 
 ## Installation
 
